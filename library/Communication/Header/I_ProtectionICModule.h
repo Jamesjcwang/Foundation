@@ -22,7 +22,7 @@ typedef struct
  uint32_t step;
 
  enum_CmdID tempcmd;
- uint8_t templength,tempvalue,tempcount;
+ uint8_t templength,tempvalue,tempcountin,tempcountout;
  volatile uint8_t  _receivedata[50];
 
  enum_CmdID cmdft;
@@ -33,8 +33,9 @@ typedef struct
 typedef struct {
 
  void(* Routine)(bool reset,uint32_t proparaindex,
-                         uint32_t crcparaindex, uint32_t delayparaindex,
-                         uint32_t modelinindex,uint32_t modeloutindex);
+                         uint32_t crcparainindex,uint32_t crcparaoutindex,
+                         uint32_t delayparaindex,uint32_t modelinindex,
+                         uint32_t modeloutindex);
  uint32_t (*ParameterInitial)(enum_CmdID cmdft,
                               I2CBaseAddress i2cport,IOBaseAddress ioport,
                               uint32_t slaveaddress,PinAndPinset sclpin,

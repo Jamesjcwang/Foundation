@@ -239,7 +239,7 @@ typedef struct {
 
 } ADCDevice;
 InterruptController* ADC_intcontroller;
-uint16_t* ADC_bufferptr;
+uint32_t* ADC_bufferptr;
 // the unit of buffersize is uint16_t
 extern void CreateADCDevice(ADCDevice* device, InterruptController* intcontroller,
                      ADCBaseAddress port ,enum_ADC_channel channel,

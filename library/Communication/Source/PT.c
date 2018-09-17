@@ -3,6 +3,32 @@
 #include <stdint.h>
 #include "library\Communication\Header\I_PT.h"
 
+static void CheckSum_8bit(uint8_t* data,uint32_t length,uint8_t* result)
+{
+ uint8_t _i,_data;
+ _data=0;
+ *result=0;
+ for (_i=0;_i<length;_i++)
+ {
+   _data=_data+*(data+_i);
+
+ }
+
+ for(_i=0;_i<8;_i++)
+ {
+     if ((_data&(1<<_i))==1<<_i)
+     {
+         *result=*result|(1<<_i);
+         _data=_data+(1<<(_i+1));
+
+     }
+
+
+ }
+
+
+}
+
 
 static void _PT_Startup(PTParameter* parameters)
  {
@@ -11,164 +37,36 @@ static void _PT_Startup(PTParameter* parameters)
 
      pt_iocomponent->IO_PinWrite(parameters->ioport,parameters->mosipin,0);
 
-     pt_iocomponent->IO_PinWrite(parameters->ioport,parameters->sspin,parameters->sspin);
+     pt_iocomponent->IO_PinWrite(parameters->ioport,parameters->sspin,
+                                 parameters->sspin);
 
      pt_spicomponent->SPIM_IntConfigure(parameters->spiport,
                                               SPI_Ready,true,0,true);
-
-  // parameters->spicomponent->SPIM_IntHandler(parameters->spiport,
-   //                                         _pt_handler);
-
-
-
-}
-
-Enum_result _PT_alarm_Routine(bool* flag,bool reset,PTParameter* parameters,
-                              uint32_t delayindex)
- {
-   if (reset)
-   {
-        parameters->step_alarm=0;
-
-   }
-
-   switch (parameters->step_alarm)
-   {
-   case 0:
-       if (*flag==true)
-       {
-         *flag=false;
-
-         parameters->step_alarm=2;
-
-       }
-      break;
-
-   case 2:
-        if (parameters->_count<parameters->retrycount)
-        {
-            parameters->step_alarm=5;
-        }
-        else
-        {
-             parameters->step_alarm=1100;
-        }
-
-
-      break;
-
-   case 5:
-
-       pt_iocomponent->IO_PinWrite(parameters->ioport,parameters->sspin,
-                                 parameters->sspin);
-
-       parameters->step_alarm=10;
-
-      pt_delaycomponent->Delay_Routine(true,1,7,delayindex);
-
-
-      break;
-
-
-   case 10:
-      if (pt_delaycomponent->Delay_Routine(true,1,7,delayindex)==true)
-        {
-           _PT_Startup(parameters);
-           parameters->step_alarm=20;
-
-        }
-
-   case 20:
-
-        if (pt_delaycomponent->Delay_Routine(true,1,7,delayindex)==true)
-        {
-
-         pt_delaycomponent->Delay_Routine(true,1,1,delayindex);
-         parameters->step_alarm=30;
-
-        }
-      break;
-   case 30:
-
-       parameters->tempvalue=parameters->cmdreset;
-       pt_spicomponent->SPIM_Transmit(true,parameters->spiport,
-                                               &(parameters->tempvalue));
-       parameters->step_alarm=40;
-      break;
-   case 40:
-
-    if (pt_spicomponent->SPIM_Transmit(false,parameters->spiport,
-                                               &(parameters->tempvalue))==true)
-       {
-        //parameters->_f1=0;
-        //parameters->spicomponent->SPIM_Receive(parameters->spiport,
-         //                                     &(parameters->_p));
-        parameters->step_alarm=50;
-
-
-       }
-    else if (pt_delaycomponent->Delay_Routine(true,1,1,delayindex)==true)
-       {
-
-
-            parameters->step_alarm=2;
-       }
-      break;
-   case 50:
-
-      if (parameters->tempvalue==parameters->cmdreset)
-       {
-          parameters->step_alarm=0;
-          return (successful);
-       }
-      else if (pt_delaycomponent->Delay_Routine(true,1,1,delayindex)==true)
-       {
-          parameters->step_alarm=1000;
-
-
-       }
-       else
-       {
-        parameters->step_alarm=30;
-
-       }
-      break;
-
-   case 1000:
-
-       // error log
-        parameters->step_alarm=2;
-       break;
-
-   case 1100:
-       //error log
-         parameters->step_alarm=0;
-         return (failure);
-    }
-   return (None);
  }
 
-
-
- void _PT_Routine(bool reset,uint32_t ptparaindex,uint32_t crcparaindex,
-                  uint32_t delayparaindex,uint32_t modelinindex,uint32_t modeloutindex)
+ void _PT_Routine(bool reset,uint32_t ptparaindex,uint32_t crcparainindex,
+                  uint32_t crcparaoutindex,uint32_t delayparaindex,
+                  uint32_t modelinindex,uint32_t modeloutindex)
  {
      PTParameter* parameters;
      bool tempbool;
      uint8_t headerlength;
+     uint8_t tempresultofchecksum;
+     uint8_t templength;
+     uint8_t tempresult[2];
+     uint32_t tempi;
      parameters=(PTParameter*)pt_listcomp->
                            GetAt(&ptlist,ptparaindex);
     if (reset)
      {
         _PT_Startup(parameters);
-        headerlength=3;
+        // headerlength=3;
 
         parameters->step=0;
         parameters->_count=0;
-        _PT_alarm_Routine(false,true,parameters,delayparaindex);
+       // _PT_alarm_Routine(false,true,parameters,delayparaindex);
 
       }
-
 
    switch ( parameters->step)
     {
@@ -176,22 +74,24 @@ Enum_result _PT_alarm_Routine(bool* flag,bool reset,PTParameter* parameters,
 
     if (pt_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
         &parameters->tempvalue,0,false)!=notvalid_model&&parameters->tempcmd==parameters->cmdft)
-        {
+      {
 
-            parameters->_count2=0;
-            parameters->step=5;
-        }
+          SEGGER_RTT_printf(0,"PT%d\r\n", 0);
+          parameters->step=5;
+      }
 
         break;
 
     case 5:
 
+         pt_iocomponent->IO_PinWrite(GPIO_PORT0_BASE,GPIO_PIN_11,0);
+         SEGGER_RTT_printf(0,"pt%d\r\n", 5);
 
-            pt_iocomponent->IO_PinWrite(parameters->ioport,parameters->sspin,0);
-            pt_delaycomponent->Delay_Routine(true,1,7,
-                                        delayparaindex);
+         pt_delaycomponent->Delay_Routine(true,1,7,delayparaindex);
 
-            parameters->step=10;
+
+         parameters->step=10;
+
 
          break;
 
@@ -200,38 +100,32 @@ Enum_result _PT_alarm_Routine(bool* flag,bool reset,PTParameter* parameters,
       if (pt_delaycomponent->Delay_Routine(false,1,7,delayparaindex)==true)
        {
 
-         parameters->flag_sendsuccessful=false;
-         parameters->tempcount=0;
-         parameters->step=20;
-
+          SEGGER_RTT_printf(0,"pt%d\r\n", 10);
+          parameters->step=20;
+          parameters->tempcount=0;
        }
         break;
 
     case 20:
+       pt_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
+                              &parameters->tempvalue,parameters->tempcount++,false);
 
-
-       if (pt_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
-                              &parameters->tempvalue,parameters->tempcount++,false)
-                              ==overflow_model)
+        if (parameters->tempcount==parameters->templength-1)
         {
-
-      SEGGER_RTT_printf(0,"PT%d\r\n", 30);
-          pt_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
-                              &parameters->tempvalue,1,true);
-          parameters->tempcount=0;
-
+         pt_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
+                             &parameters->tempvalue,1,true);
+         parameters->tempcount=10;
+         SEGGER_RTT_printf(0,"pt%d\r\n", 21);
          parameters->step=100;
 
         }
      else
         {
-
-
+           SEGGER_RTT_printf(0,"pt%d\r\n", 20);
          pt_spicomponent->SPIM_Transmit(true,parameters->spiport,
                                                  &(parameters->tempvalue));
 
-         pt_delaycomponent->Delay_Routine(true,1,1,
-                                        delayparaindex);
+         pt_delaycomponent->Delay_Routine(true,1,4,delayparaindex);
          parameters->step=60;
 
 
@@ -240,290 +134,172 @@ Enum_result _PT_alarm_Routine(bool* flag,bool reset,PTParameter* parameters,
      break;
 
     case 60:
+        SEGGER_RTT_printf(0,"pt%d\r\n", 22);
       if (pt_spicomponent->SPIM_Transmit(false,parameters->spiport,
-                                                 &(parameters->tempvalue))==true)
-       {
-       // parameters->spicomponent->SPIM_Receive(parameters->spiport,
-       //                                       &(parameters->_p));
-       if (parameters->tempvalue==0xFF)
+                                              &(parameters->tempvalue))==true)
        {
 
-         parameters->flag_sendsuccessful=true;
-
-       }
-
+SEGGER_RTT_printf(0,"pt%d\r\n", 60);
+        // parameters->spicomponent->SPIM_Receive(parameters->spiport,
+        //                                      &(parameters->_p));
         parameters->step=20;
        // parameters->_f1=0;
 
        }
-       else if (pt_delaycomponent->Delay_Routine(false,1,1,
-                 delayparaindex)==true)
+
+
+       else if (pt_delaycomponent->Delay_Routine(false,1,4,delayparaindex)==true)
        {
 
-
-
-           pt_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
+         pt_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
                               &parameters->tempvalue,1,true);
-           parameters->step=1000;
-         //  parameters->flag_alarm=true;
-
-       }
-        break;
-    case 70:
-
-
-      switch (parameters->_tempresult)
-      {
-      case None:
-
-
-        break;
-      case successful:
-       // parameters->step=20;
-       // parameters->model->inputptr=0;
-
-        break;
-      case failure:
-         //parameters->model->output_cmd=parameters->model->input_cmd;
-        // parameters->model->outputlength=1;
-
-       //  parameters->model->outputptr=0;
-       //  parameters->step=1000;
-       break;
+            parameters->step=1000;
       }
+        break;
 
     case 100:
-        if (parameters->flag_sendsuccessful==true)
-        {
-            parameters->_count2++;
-            if (parameters->_count2>parameters->retrycount)
-            {
-             parameters->step=1000;
-            }
-            else
-            {
-             pt_delaycomponent->Delay_Routine(true,1,7,
-                                        delayparaindex);
-             parameters->step=10;
-            }
-   SEGGER_RTT_printf(0,"PT%d\r\n",100);
-        }
-        else
-        {
-            parameters->_count2=0;
-            parameters->step=105;
-        }
-
-        break;
-
-    case 105:
-
-     if (parameters->tempcount<headerlength)
+     if (parameters->tempcount>0)
         {
 
+         SEGGER_RTT_printf(0,"pt%d\r\n", 100);
          parameters->tempvalue=0;
          pt_spicomponent->SPIM_Transmit(true,parameters->spiport,
-                                                 &(parameters->tempvalue));
-         pt_delaycomponent->Delay_Routine(true,1,1,
-                                       delayparaindex);
+                                                   &(parameters->tempvalue));
+         pt_delaycomponent->Delay_Routine(true,1,7,delayparaindex);
          parameters->step=110;
 
         }
      else
         {
 
-         parameters->step=115;
+         SEGGER_RTT_printf(0,"pt%d\r\n", 101);
+         parameters->step=190;
 
         }
 
       break;
     case 110:
 
-       if (pt_spicomponent->SPIM_Transmit(false,parameters->spiport,
-                                                 &(parameters->tempvalue))==true)
+        if ( pt_spicomponent->SPIM_Transmit(false,parameters->spiport,
+                                              &(parameters->tempvalue))==true)
        {
-        //parameters->spicomponent->SPIM_Receive(parameters->spiport,
-        //                                      &(parameters->_p));
-         *(parameters->receivedata+parameters->tempcount++)=
-                            parameters->tempvalue;
-         if (parameters->tempvalue=0xFF)
-         {
-             parameters->flag_sendsuccessful=true;
-         }
 
-        parameters->step=105;
+SEGGER_RTT_printf(0,"pt%d\r\n", 110);
+         *(parameters->receivedata+(10-parameters->tempcount--))=
+                            parameters->tempvalue;
+SEGGER_RTT_printf(0,"pt%d\r\n",  parameters->tempvalue);
+        parameters->step=100;
         //parameters->_f1=0;
 
        }
-       else if (pt_delaycomponent->Delay_Routine(true,1,1,
-                 delayparaindex)==true)
+       else if (pt_delaycomponent->Delay_Routine(true,1,7,delayparaindex)==true)
        {
 
-         parameters->step=1000;
+SEGGER_RTT_printf(0,"pt%d\r\n", 111);
+
+            parameters->step=1000;
+
+        }
+        break;
+
+    case 190:
+SEGGER_RTT_printf(0,"ptretry%d\r\n", parameters->retrycount);
+
+       CheckSum_8bit(parameters->receivedata,9,&tempresultofchecksum);
+
+       if (*(parameters->receivedata+9)==tempresultofchecksum&&
+           *(parameters->receivedata)!=0)
+       {   parameters->_count=0;
+           parameters->step=195;
+       }
+       else if (parameters->_count==parameters->retrycount)
+       {   parameters->_count=0;
+           parameters->step=1010;
 
        }
-        break;
+       else
+       {
+           parameters->_count++;
 
+           pt_delaycomponent->Delay_Routine(true,1,3,delayparaindex);
+           parameters->step=193;
+           parameters->tempcount=10;
+       }
 
-    case 115:
-        if (parameters->flag_sendsuccessful==true)
-        {
-            parameters->_count2++;
-            if (parameters->_count2>parameters->retrycount)
-            {
-             parameters->step=1000;
-            }
-            else
-            {
-             pt_delaycomponent->Delay_Routine(true,1,7,
-                                        delayparaindex);
-             parameters->step=117;
-            }
-
-        }
-        else
-        {
-            parameters->_count2=0;
-            parameters->step=120;
-        }
-
-        break;
-
-    case 117:
-         if ( pt_delaycomponent->Delay_Routine(true,1,7, delayparaindex)==true)
-         {
-             parameters->tempcount=0;
-             parameters->step=105;
-         }
-
-        break;
-
-
-    case 120:
-
-            parameters->flag_sendsuccessful=false;
-            parameters->_count2=0;
-            parameters->tempcount=0;
-            parameters->step=130;
-
-        break;
-
-    case 130:
-        if (parameters->tempcount<*(parameters->receivedata+2))
-        {
-         parameters->tempvalue=0;
-         pt_spicomponent->SPIM_Transmit(true,parameters->spiport,
-                                                 &(parameters->tempvalue));
-         pt_delaycomponent->Delay_Routine(true,1,1,
-                                       delayparaindex);
-         parameters->step=140;
-
-        }
-     else
-        {
-         parameters->step=150;
-
-        }
 
       break;
-    case 140:
 
-       if (pt_spicomponent->SPIM_Transmit(true,parameters->spiport,
-                                                 &(parameters->tempvalue))==true)
-       {
-        //parameters->spicomponent->SPIM_Receive(parameters->spiport,
-        //                                      &(parameters->_p));
-         *(parameters->receivedata+parameters->tempcount++)=
-                            parameters->tempvalue;
-         if (parameters->tempvalue=0xFF)
-         {
-             parameters->flag_sendsuccessful=true;
-         }
-
-        parameters->step=130;
-        //parameters->_f1=0;
-
-       }
-       else if (pt_delaycomponent->Delay_Routine(true,1,1,
-                 delayparaindex)==true)
-       {
-
-         parameters->step=1000;
-
-       }
-        break;
-
-    case 150:
-       if (parameters->flag_sendsuccessful==true)
+    case 193:
+       if (pt_delaycomponent->Delay_Routine(false,1,3,delayparaindex)==true)
         {
-            parameters->_count2++;
-            if (parameters->_count2>parameters->retrycount)
-            {
-             parameters->step=1000;
-            }
-            else
-            {
-             pt_delaycomponent->Delay_Routine(true,1,7,
-                                        delayparaindex);
-             parameters->step=160;
-            }
-
+               parameters->step=100;
         }
-        else
-        {
-            parameters->flag_sendsuccessful=false;
-            parameters->_count2=0;
-            parameters->tempcount=0;
-            parameters->step=200;
-        }
-
         break;
+    case 195:
 
-    case 160:
-        if ( pt_delaycomponent->Delay_Routine(true,1,7, delayparaindex)==true)
-           {
-               parameters->step=130;
-               parameters->tempcount=0;
-           }
-         break;
+        pt_crccomp->crc(crcparaoutindex,10,parameters->receivedata,
+                           tempresult,&templength);
+
+        *(parameters->receivedata+10)=*tempresult;
+        *(parameters->receivedata+11)=*(tempresult+1);
+
+        parameters->step=200;
+        break;
 
     case 200:
+    if (pt_modelcomp->Set(modeloutindex,
+                             parameters->tempcmd,parameters->receivedata,
+                             12)==successful_model)
+     {
 
-     if (pt_modelcomp->Set(modeloutindex,crcparaindex,parameters->tempcmd,
-                            parameters->receivedata,headerlength+*(parameters->receivedata+2),
-                            false)==successful_model)
-       {
+          SEGGER_RTT_printf(0,"pt%d\r\n", 200);
+
+
          pt_iocomponent->IO_PinWrite(parameters->ioport,parameters->sspin,
-                                 parameters->sspin);
-       }
-
+                                parameters->sspin);
           parameters->step=0;
 
 
-       break;
+      }
 
+       break;
 
     case 1000:
-
-
-       if (pt_modelcomp->Set(modeloutindex,crcparaindex,parameters->tempcmd,
-                           parameters->receivedata,1,false)==successful_model)
-
-       {
-           pt_iocomponent->IO_PinWrite(parameters->ioport,parameters->sspin,
-                                 parameters->sspin);
-            parameters->step=0;
-       }
-
-
-
+     parameters->receivedata[0]=0xff;
+     pt_crccomp->crc(crcparaoutindex,1,parameters->receivedata,
+                        tempresult,&templength);
+     *(parameters->receivedata+1)=*(tempresult);
+     *(parameters->receivedata+2)=*(tempresult+1);
+      parameters->step=1100;
+     break;
+    case 1010:
+     parameters->receivedata[0]=0xfE;
+     pt_crccomp->crc(crcparaoutindex,1,parameters->receivedata,
+                        tempresult,&templength);
+     *(parameters->receivedata+1)=*(tempresult);
+     *(parameters->receivedata+2)=*(tempresult+1);
+ parameters->step=1100;
        break;
+
+   case 1100:
+
+
+
+    if (pt_modelcomp->Set(modeloutindex,
+                                 parameters->tempcmd,parameters->receivedata,
+                                 3)==successful_model)
+     {    pt_iocomponent->IO_PinWrite(parameters->ioport,parameters->sspin,
+                                 parameters->sspin);
+          SEGGER_RTT_printf(0,"pt%d\r\n", 1000);
+          parameters->step=0;
+      }
+      break;
 
 
   }
 
-   parameters->_tempresult=
-  _PT_alarm_Routine(&(parameters->flag_alarm),false,parameters,delayparaindex);
+  // parameters->_tempresult=
+ // _PT_alarm_Routine(&(parameters->flag_alarm),false,parameters,delayparaindex);
 
 
  }
@@ -532,7 +308,8 @@ uint32_t _PT_ParameterInitial(SPIBaseAddress spiport,
                               IOBaseAddress ioport,enum_CmdID cmdft,
                               enum_CmdID cmdreset,
                               PinAndPinset sckpin,PinAndPinset mosipin,
-                              PinAndPinset misopin,PinAndPinset sspin)
+                              PinAndPinset misopin,PinAndPinset sspin,
+                              uint8_t retrycount)
 {
      ListStruct_uint8 tempdata;
 
@@ -545,6 +322,7 @@ uint32_t _PT_ParameterInitial(SPIBaseAddress spiport,
     ((PTParameter*)(tempdata.value))->mosipin=mosipin;
     ((PTParameter*)(tempdata.value))->sckpin=sckpin;
     ((PTParameter*)(tempdata.value))->sspin=sspin;
+    ((PTParameter*)(tempdata.value))->retrycount=retrycount;
     return(pt_listcomp->Insert(&ptlist,&tempdata));
 
 

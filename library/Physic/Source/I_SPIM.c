@@ -428,14 +428,15 @@ void _SPIM_Configure(SPIBaseAddress port , EnumSpiFrequency frequency,
  bool _SPIM_Transmit(bool reset,SPIBaseAddress port,uint8_t *data)
   {
     if (reset==true)
-    {
+    {   nrf_spi_disable((NRF_SPI_Type*)port);
+        nrf_spi_enable((NRF_SPI_Type*)port);
         *getstepspim(port)=0;
         *getflagspim(port)=false;
 
     }
 
     switch (*getstepspim(port))
-        // SEGGER_RTT_printf(0,"Times %d\r\n",*data);
+
       {
        case 0:
            nrf_spi_txd_set((NRF_SPI_Type*) port,*data);
@@ -446,7 +447,6 @@ void _SPIM_Configure(SPIBaseAddress port , EnumSpiFrequency frequency,
 
            if  (*getflagspim(port)==true)
            {
-
 
             *getstepspim(port)=20;
             *getflagspim(port)=false;
@@ -472,7 +472,8 @@ void _SPIM_Configure(SPIBaseAddress port , EnumSpiFrequency frequency,
                            bool enable,uint32_t priority,bool controllerenable)
   {
      SPIM_intcontroller->Configure(SPIM1_SPIS1_TWIM1_TWIS1_SPI1_TWI1_IRQn,controllerenable,priority);
-
+ //SPIM_intcontroller->Configure(SPIM0_SPIS0_TWIM0_TWIS0_SPI0_TWI0_IRQn,controllerenable,priority);
+   SPIM_intcontroller->Configure(SPIM2_SPIS2_SPI2_IRQn,controllerenable,priority);
 
      if (enable)
       {
@@ -564,9 +565,9 @@ void CreateSPIMDevice(SPIMDevice* device, InterruptController* intcontroller,
 
    device->SPIM_Transmit=_SPIM_Transmit;
    SPIM_intcontroller=intcontroller;
-    SPIM_intcontroller->IntHandler(SPIM1_SPIS1_TWIM1_TWIS1_SPI1_TWI1_IRQn,SPI1Handler);
-
-
+   SPIM_intcontroller->IntHandler(SPIM1_SPIS1_TWIM1_TWIS1_SPI1_TWI1_IRQn,SPI1Handler);
+   SPIM_intcontroller->IntHandler(SPIM0_SPIS0_TWIM0_TWIS0_SPI0_TWI0_IRQn,SPI0Handler);
+   SPIM_intcontroller->IntHandler(SPIM2_SPIS2_SPI2_IRQn,SPI2Handler);
 
 
 

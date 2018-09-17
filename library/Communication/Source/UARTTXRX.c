@@ -6,7 +6,8 @@
 void _UARTTXRX_ReceiveRoutine(bool reset, UARTTXRXParameter* parameters )
 {
     resultofaccess tempstatus;
-
+    uint8_t tempresult[2];
+    uint8_t templength;
 
     if (reset==true)
     {
@@ -16,40 +17,63 @@ void _UARTTXRX_ReceiveRoutine(bool reset, UARTTXRXParameter* parameters )
 
 
      switch (parameters->step_receive)
-
      {
-    case 0:
-      if (parameters->flagreceived==1)
+      case 0:
+        if (parameters->flagreceived==1)
+         {
 
-       {
-         tempstatus=uart_modelcomp->Set(parameters->modelinindex,parameters->crcparaindex,
-                               *(parameters->receivedata+1),
-                               (parameters->receivedata+3),
-                               *(parameters->receivedata+2),true);
-          if(tempstatus==successful_model)
+        //   SEGGER_RTT_printf(0,"rx %d\r\n",21);
+          if (uart_crccomp->crc(parameters->crcparainindex,
+                             *(parameters->receivedata+2)-2,
+                             (parameters->receivedata+3),tempresult,
+                             &templength)==true)
+          {
+    parameters->step_receive=3;
+          }
+
+          else
           {
 
-
-              parameters->flagreceived=0;
-          }
-          else if (tempstatus==failure_model)
-          {   parameters->flagreceived=0;
               *(parameters->receivedata+3)=0xff;
+             uart_crccomp->crc(parameters->crcparainindex,
+                              1,
+                             (parameters->receivedata+3),tempresult,
+                             &templength);
+
+              *(parameters->receivedata+4)=*tempresult;
+              *(parameters->receivedata+5)=*(tempresult+1);
               parameters->step_receive=5;
+          //    SEGGER_RTT_printf(0,"rx %d\r\n",2);
           }
 
-          SEGGER_RTT_printf(0,"rx %d\r\n",00);
+         // SEGGER_RTT_printf(0,"rx %d\r\n",00);
        }
 
        break;
 
+      case 3:
+              //    SEGGER_RTT_printf(0,"rx %d\r\n",20);
+            tempstatus=uart_modelcomp->Set(parameters->modelinindex,
+                                      *(parameters->receivedata+1),
+                                     (parameters->receivedata+3),
+                                     *(parameters->receivedata+2));
+SEGGER_RTT_printf(0,"rx %d\r\n",22);
+             if(tempstatus==successful_model)
+             {
+         //         SEGGER_RTT_printf(0,"rx %d\r\n",22);
+               parameters->flagreceived=0;
+               parameters->step_receive=0;
+
+             }
+          break;
      case 5:
 
-       if(tempstatus=uart_modelcomp->Set(parameters->modelinindex,parameters->crcparaindex,
-                      *(parameters->receivedata+1),
-                      (parameters->receivedata+3),
-                      1,false)==successful_model)
+       if(tempstatus=uart_modelcomp->Set(parameters->modeloutindex,
+                                         *(parameters->receivedata+1),
+                                        (parameters->receivedata+3),3
+                                        )==successful_model)
         {
+           parameters->flagreceived=0;
            parameters->step_receive=0;
         }
 
@@ -71,12 +95,19 @@ void _UARTTXRX_ReceiveRoutine(bool reset, UARTTXRXParameter* parameters )
         uart_uartcomp->UART_Receive(parameters->uartport,
                                     false,&(parameters->tempvalue));
 
+       if (parameters->flagreceived==0&&
+           (parameters->tempvalue==parameters->startchar||
+            parameters->refresh==1))
+       {
 
-      if ( parameters->tempvalue==parameters->startchar)
+       if ( parameters->tempvalue==parameters->startchar)
           {
              SEGGER_RTT_printf(0,"TXRX%d\r\n", 1);
-             parameters->flagreceived=0;
+               SEGGER_RTT_printf(0,"length%d\r\n", parameters->tempvalue);
+
+             //parameters->flagreceived=0;
              parameters->tempindex=0;
+             parameters->refresh=1;
             *( parameters->receivedata+ parameters->tempindex++)=
                                         parameters->tempvalue;
 
@@ -85,6 +116,7 @@ void _UARTTXRX_ReceiveRoutine(bool reset, UARTTXRXParameter* parameters )
         else if ( parameters->tempindex==2)
           {
             SEGGER_RTT_printf(0,"TXRX%d\r\n", 2);
+            SEGGER_RTT_printf(0,"length%d\r\n", parameters->tempvalue);
             parameters->lengthofdata= parameters->tempvalue;
             *( parameters->receivedata+ parameters->tempindex)=
                                      parameters->tempvalue;
@@ -94,11 +126,13 @@ void _UARTTXRX_ReceiveRoutine(bool reset, UARTTXRXParameter* parameters )
         else if ( parameters->tempindex== parameters->lengthofdata+2)
           {
            SEGGER_RTT_printf(0,"TXRX%d\r\n", 3);
+           SEGGER_RTT_printf(0,"value%d\r\n", parameters->tempvalue);
            *( parameters->receivedata+ parameters->tempindex)=
                                     parameters->tempvalue;
            parameters->tempindex++;
 
             parameters->flagreceived=1;
+            parameters->refresh==0;
 
           }
 
@@ -106,6 +140,7 @@ void _UARTTXRX_ReceiveRoutine(bool reset, UARTTXRXParameter* parameters )
           {
 
            SEGGER_RTT_printf(0,"TXRX%d\r\n", 4);
+           SEGGER_RTT_printf(0,"value%d\r\n", parameters->tempvalue);
            if ( parameters->tempindex==50)
            {
                parameters->tempindex=49;
@@ -117,6 +152,7 @@ void _UARTTXRX_ReceiveRoutine(bool reset, UARTTXRXParameter* parameters )
 
           }
 
+       }
      }
 }
 
@@ -124,21 +160,11 @@ void _UARTTXRX_ReceiveRoutine(bool reset, UARTTXRXParameter* parameters )
 static void _uart_startup(UARTTXRXParameter* parameter)
 {   uint32_t i;
 
-    uart_iocomp->IO_Configure(parameter->ioport,
-                             parameter->txpin,NRF_GPIO_PIN_S0S1,
-                             NRF_GPIO_PIN_NOPULL,GPIO_DIR_MODE_OUT
-                             ,GPIO_DIR_MODE_OUT);
+
     uart_iocomp->IO_PinWrite(parameter->ioport,
                                        parameter->txpin,
                                        parameter->txpin);
-    uart_iocomp->IO_Configure(parameter->ioport,
-                             parameter->rxpin,NRF_GPIO_PIN_S0S1,
-                             NRF_GPIO_PIN_NOPULL,GPIO_DIR_MODE_IN
-                             ,GPIO_DIR_MODE_IN);
-    uart_iocomp->IO_Configure(parameter->ioport,
-                             parameter->rstpin,NRF_GPIO_PIN_D0H1,
-                             NRF_GPIO_PIN_NOPULL,GPIO_DIR_MODE_IN
-                             ,GPIO_DIR_MODE_IN);
+
 
     uart_uartcomp->UART_ReceiveIntHandler(app_UART_IntHandler);
 
@@ -177,6 +203,7 @@ static void _UARTTXRX_SendRoutine(bool reset,uint32_t paraindex)
             parameters->step_send=10;
             parameters->tempvalue=0XEF;
             uart_uartcomp->UART_Send(true,parameters->uartport,false,&parameters->tempvalue,1);
+      SEGGER_RTT_printf(0,"sx %d\r\n",0);
         }
 
 
@@ -185,15 +212,18 @@ static void _UARTTXRX_SendRoutine(bool reset,uint32_t paraindex)
      case 10:
 
       if (uart_uartcomp->UART_Send(false,parameters->uartport,false,&parameters->tempvalue,1)==true)
-      {
+      {SEGGER_RTT_printf(0,"sx %d\r\n",10);
           parameters->step_send=20;
       }
       break;
+
      case 20:
+
+
       if (uart_modelcomp->Get(parameters->modeloutindex,&parameters->tempcmd,
                               &parameters->templength,&parameters->tempvalue,
                               0,false)==overflow_model)
-       {
+       {SEGGER_RTT_printf(0,"sx %d\r\n",20);
            uart_modelcomp->Get(parameters->modeloutindex,&parameters->tempcmd,
                                &parameters->templength,
                               &parameters->tempvalue,1,true);
@@ -211,17 +241,19 @@ static void _UARTTXRX_SendRoutine(bool reset,uint32_t paraindex)
       //error process is needed here
 
      case 30:
+
      if (uart_uartcomp->UART_Send(false,parameters->uartport,false,&parameters->tempvalue,1)==true)
-      {
+      {SEGGER_RTT_printf(0,"sx %d\r\n",30);
           parameters->step_send=40;
       }
       break;
 
      case 40:
+
        if (uart_modelcomp->Get(parameters->modeloutindex,&parameters->tempcmd,
                               &parameters->templength,&parameters->tempvalue,
                               0,false)==overflow_model)
-       {
+       {SEGGER_RTT_printf(0,"sx %d\r\n",40);
              uart_modelcomp->Get(parameters->modeloutindex,&parameters->tempcmd,
                                &parameters->templength,
                               &parameters->tempvalue,1,true);
@@ -237,6 +269,7 @@ static void _UARTTXRX_SendRoutine(bool reset,uint32_t paraindex)
        }
 
        break;
+
      case 50:
 
       if (uart_uartcomp->UART_Send(false,parameters->uartport,false,&parameters->templength,1)==true)
@@ -249,10 +282,11 @@ static void _UARTTXRX_SendRoutine(bool reset,uint32_t paraindex)
 
 
      case 60:
+
       if (uart_modelcomp->Get(parameters->modeloutindex,&parameters->tempcmd,
                               &parameters->templength,&parameters->tempvalue,
                               parameters->tempindex++,false)==overflow_model)
-        {
+        { SEGGER_RTT_printf(0,"sx %d\r\n",60);
              uart_modelcomp->Get(parameters->modeloutindex,&parameters->tempcmd,
                               &parameters->templength,
                              &parameters->tempvalue,1,true);
@@ -291,7 +325,9 @@ static uint32_t _uarttxrx_ParameterInitial(uint8_t startchar,
                               UARTBaseAddress uartport,IOBaseAddress ioport,
                               PinAndPinset txpin,PinAndPinset rxpin,
                               PinAndPinset cstpin,PinAndPinset rstpin,
-                              uint32_t crcparaindex,uint32_t delayparaindex,
+                              uint32_t crcparainindex,uint32_t crcparaoutindex
+                              ,uint32_t crcparaoutindex_transfer,uint32_t crcparaoutindex_transfer2,
+                              uint32_t delayparaindex,
                               uint32_t modelinindex,uint32_t modeloutindex)
 {
      ListStruct_uint8 tempdata;
@@ -305,11 +341,15 @@ static uint32_t _uarttxrx_ParameterInitial(uint8_t startchar,
     ((UARTTXRXParameter*)(tempdata.value))->rxpin=rxpin;
     ((UARTTXRXParameter*)(tempdata.value))->cstpin=cstpin;
     ((UARTTXRXParameter*)(tempdata.value))->rstpin=rstpin;
-    ((UARTTXRXParameter*)(tempdata.value))->crcparaindex=crcparaindex;
+    ((UARTTXRXParameter*)(tempdata.value))->crcparainindex=crcparainindex;
+    ((UARTTXRXParameter*)(tempdata.value))->crcparaoutindex=crcparaoutindex;
     ((UARTTXRXParameter*)(tempdata.value))->delayparaindex=delayparaindex;
     ((UARTTXRXParameter*)(tempdata.value))->modelinindex=modelinindex;
     ((UARTTXRXParameter*)(tempdata.value))->modeloutindex=modeloutindex;
-
+    ((UARTTXRXParameter*)(tempdata.value))->crcparaoutindex_transfer=
+                                            crcparaoutindex_transfer;
+    ((UARTTXRXParameter*)(tempdata.value))->crcparaoutindex_transfer2=
+                                            crcparaoutindex_transfer2;
     uartparalist[0]=uart_listcomp->Insert(&uartlist,&tempdata);
 
 

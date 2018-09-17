@@ -104,10 +104,12 @@ void _sha_cleanbus(Shaparameter* paramters)
 {  uint32_t i,j;
 //SEGGER_RTT_printf(0,"SHAreceive%d\r\n", 1000);
  sha_iocomponent->IO_Configure(GPIO_PORT0_BASE,GPIO_PIN_26,NRF_GPIO_PIN_S0D1,
-                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN);
+                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN,
+                       Sense_Disabled);
 
  sha_iocomponent->IO_Configure(GPIO_PORT0_BASE,GPIO_PIN_27,NRF_GPIO_PIN_S0D1,
-                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN);
+                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN,
+                       Sense_Disabled);
 
 
  sha_iocomponent->IO_PinWrite(GPIO_PORT0_BASE,GPIO_PIN_26,GPIO_PIN_26);
@@ -115,9 +117,11 @@ void _sha_cleanbus(Shaparameter* paramters)
 
 
  sha_iocomponent->IO_Configure(GPIO_PORT0_BASE,GPIO_PIN_26,NRF_GPIO_PIN_S0D1,
-                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_OUT,GPIO_DIR_MODE_IN);
+                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_OUT,GPIO_DIR_MODE_IN,
+                       Sense_Disabled);
  sha_iocomponent->IO_Configure(GPIO_PORT0_BASE,GPIO_PIN_27,NRF_GPIO_PIN_S0D1,
-                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_OUT,GPIO_DIR_MODE_IN);
+                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_OUT,GPIO_DIR_MODE_IN,
+                       Sense_Disabled);
 
 //SEGGER_RTT_printf(0,"SHAreceive%d\r\n", 900);
 
@@ -164,10 +168,12 @@ static void _ShaID_Startup(Shaparameter* paramters)
  // SEGGER_RTT_printf(0,"SHAreceive%d\r\n", 800);
       sha_iocomponent->IO_Configure(paramters->ioport,paramters->sdapin
                                             ,NRF_GPIO_PIN_S0D1,paramters->sdatype,
-                                            GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN);
+                                            GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN,
+                                            Sense_Disabled);
     sha_iocomponent->IO_Configure(paramters->ioport,paramters->sclpin,
                                             NRF_GPIO_PIN_S0D1,paramters->scltype,
-                                            GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN);
+                                            GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN
+                                            ,Sense_Disabled);
 
     sha_i2component->I2C_Configure(paramters->i2cport,I2C_FREQUENCY_K100,
                                    GPIO_PIN_27,GPIO_PIN_26);
@@ -277,13 +283,16 @@ static void _ShaID_Startup(Shaparameter* paramters)
 }
 
 static void _SHAID_Routine(bool reset,uint32_t shaparaindex,
-                         uint32_t crcparaindex, uint32_t delayparaindex,
+                         uint32_t crcparainindex,uint32_t crcparaoutindex,
+                         uint32_t delayparaindex,
                          uint32_t modelinindex,uint32_t modeloutindex)
 {
 
-
+    resultofaccess _tempmodelresult;
     enum_i2cresult tempresult;
     volatile uint32_t i;
+    uint32_t templength;
+    uint8_t tempresult1[2];
 
     Shaparameter* parameters;
     i=sha_listcomp->GetAt(&shalist,shaparaindex);
@@ -311,17 +320,14 @@ static void _SHAID_Routine(bool reset,uint32_t shaparaindex,
 
         if (sha_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
             &parameters->tempvalue,0,false)!=notvalid_model&&parameters->tempcmd==parameters->cmdft)
-
-
         {
-
            parameters->step=10;
         }
 
         break;
 
     case 10:
- SEGGER_RTT_printf(0,"sha%d\r\n", 10);
+           SEGGER_RTT_printf(0,"sha%d\r\n", 10);
 
            sha_i2component->I2C_Send(open,parameters->i2cport,0,0);
 
@@ -336,7 +342,6 @@ static void _SHAID_Routine(bool reset,uint32_t shaparaindex,
          if (sha_i2component->I2C_Send(null,parameters->i2cport,(uint8_t)parameters->slaveaddress,0)
             ==i2c_stop)
         {
-
             sha_delaycomponent->Delay_Routine(true,1,4,delayparaindex);
             parameters->step=20;
         }
@@ -371,9 +376,9 @@ static void _SHAID_Routine(bool reset,uint32_t shaparaindex,
         }
         break;
     case 30:
-       if (sha_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
-                              &parameters->tempvalue,parameters->tempcount++,false)
-                              ==overflow_model)
+           sha_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
+                              &parameters->tempvalue,parameters->tempcount++,false);
+        if (parameters->tempcount==parameters->templength-1)
        {
 parameters->tempcount=7;
          sha_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
@@ -386,7 +391,7 @@ parameters->tempcount=7;
 
        else
        {
-                 SEGGER_RTT_printf(0,"data%d\r\n",parameters->tempcount);
+                 SEGGER_RTT_printf(0,"data%d\r\n",parameters->tempvalue);
          sha_delaycomponent->Delay_Routine(true,1,1,delayparaindex);
          parameters->step=40;
        }
@@ -556,12 +561,33 @@ parameters->tempcount=7;
 
 
     case 200:
-     if (sha_modelcomp->Set(modeloutindex,crcparaindex,parameters->tempcmd,
-                            parameters->_receivedata,7,false)==successful_model)
+        sha_crccomp->crc(crcparaoutindex,7,parameters->_receivedata,
+                           tempresult1,&templength);
+
+        *(parameters->_receivedata+7)=*tempresult1;
+        *(parameters->_receivedata+8)=*(tempresult1+1);
+
+        parameters->step=210;
+         break;
+
+
+    case 210:
+
+
+     _tempmodelresult=sha_modelcomp->Set(modeloutindex,
+                                         parameters->tempcmd,parameters->_receivedata,
+                                         9);
+     if (_tempmodelresult==successful_model)
      {
             SEGGER_RTT_printf(0,"SHA%d\r\n", 210);
 
            parameters->step=220;
+
+     }
+     else if (_tempmodelresult==failure_model)
+     {
+
+         parameters->step=1000;
 
      }
 
@@ -616,56 +642,6 @@ sha_i2component->I2C_Send(close,parameters->i2cport,(uint8_t)parameters->slavead
              SEGGER_RTT_printf(0,"SHA%d\r\n", 225);
          }
          break;
-    case 2251:
-            if (sha_i2component->I2C_Send(null,parameters->i2cport,(uint8_t)parameters->slaveaddress,
-                                         &(parameters->tempvalue))==i2c_success)
-         {
- parameters->tempvalue=0x00;
-            sha_delaycomponent->Delay_Routine(true,1,4,delayparaindex);
-
-            parameters->step=2252;
-             SEGGER_RTT_printf(0,"SHA%d\r\n", 225);
-         }
-         break;
-
-
-    case 2252:
-          if (sha_i2component->I2C_Send(null,parameters->i2cport,(uint8_t)parameters->slaveaddress,
-                                         &(parameters->tempvalue))==i2c_success)
-         {
- parameters->tempvalue=0x00;
-            sha_delaycomponent->Delay_Routine(true,1,4,delayparaindex);
-
-            parameters->step=2253;
-             SEGGER_RTT_printf(0,"SHA%d\r\n", 225);
-         }
-         break;
-
-
-
-    case 2253:
-          if (sha_i2component->I2C_Send(null,parameters->i2cport,(uint8_t)parameters->slaveaddress,
-                                         &(parameters->tempvalue))==i2c_success)
-         {
- parameters->tempvalue=0x00;
-            sha_delaycomponent->Delay_Routine(true,1,4,delayparaindex);
-
-            parameters->step=2254;
-             SEGGER_RTT_printf(0,"SHA%d\r\n", 225);
-         }
-         break;
-          case 2254:
-          if (sha_i2component->I2C_Send(null,parameters->i2cport,(uint8_t)parameters->slaveaddress,
-                                         &(parameters->tempvalue))==i2c_success)
-         {
- parameters->tempvalue=0x00;
-            sha_delaycomponent->Delay_Routine(true,1,4,delayparaindex);
-
-            parameters->step=2255;
-             SEGGER_RTT_printf(0,"SHA%d\r\n", 225);
-         }
-         break;
-
 
 
     case 226:
@@ -709,9 +685,23 @@ SEGGER_RTT_printf(0,"SHA%d\r\n", 230);
     case 1000:
 
         parameters->_receivedata[0]=0xff;
+        sha_crccomp->crc(crcparaoutindex,1,parameters->_receivedata,
+                           tempresult1,&templength);
 
-        if (sha_modelcomp->Set(modeloutindex,crcparaindex,parameters->tempcmd,
-                               parameters->_receivedata,1,false)==successful_model)
+        *(parameters->_receivedata+1)=*tempresult1;
+        *(parameters->_receivedata+2)=*(tempresult1+1);
+
+        parameters->step=200;
+         break;
+
+
+
+    case 1100:
+
+
+        if (sha_modelcomp->Set(modeloutindex,
+                               parameters->tempcmd,parameters->_receivedata,
+                               3)==successful_model)
         {
               parameters->step=0;
               SEGGER_RTT_printf(0,"SHA%d\r\n", 1100);

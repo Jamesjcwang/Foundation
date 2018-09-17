@@ -39,15 +39,16 @@ typedef struct
 
 typedef struct {
 
- void(* PT_Routine)(bool reset,uint32_t ptparaindex,uint32_t crcparaindex,
-                    uint32_t delayparaindex,
+ void(* PT_Routine)(bool reset,uint32_t ptparaindex,uint32_t crcparainindex,
+                    uint32_t crcparaoutindex, uint32_t delayparaindex,
                     uint32_t modelinindex,uint32_t modeloutindex);
 
  uint32_t (*ParameterInitial)(SPIBaseAddress spiport,
                                IOBaseAddress ioport,enum_CmdID cmdft,
                                enum_CmdID cmdreset,
                                PinAndPinset sckpin,PinAndPinset mosipin,
-                               PinAndPinset misopin,PinAndPinset sspin);
+                               PinAndPinset misopin,PinAndPinset sspin,
+                               uint8_t retrycount);
 } PTDevice;
 ListStruct_uint8 ptlist;
 ListCollection* pt_listcomp;

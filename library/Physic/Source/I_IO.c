@@ -20,6 +20,7 @@
 
 #include <stdbool.h>
 #include "library\Physic\Header\I_IO.h"
+
 //#include "D:\test\Nordic\segger_rtt\SEGGER_RTT.h"
 
 
@@ -614,11 +615,11 @@ static inline void nrf_gpio_port_clear(nrf_gpio_port_select_t port, uint8_t clr_
 }
 
 void _IO_Configure(IOBaseAddress port ,PinAndPinset pin, DriveStrength length,Pull_Push type,
-                     PinMode mode,PinMode bufferconnected)
+                     PinMode mode,PinMode bufferconnected,enum_Sense_for_wakeup sense)
     {
 
+       nrf_gpio_cfg(pin,mode,bufferconnected,type,length,sense);
 
-        nrf_gpio_cfg(pin,mode,bufferconnected,type,length,NRF_GPIO_PIN_NOSENSE);
 
     }
  void _IO_PinWrite(IOBaseAddress port , PinAndPinset  pin, PinAndPinset status)
@@ -641,22 +642,36 @@ uint32_t _IO_PinRead(IOBaseAddress port ,PinAndPinset pin)
       return (   nrf_gpio_pin_read((uint32_t)pin));
 
     }
+static void _IO_powerdown(IOBaseAddress port , PinAndPinset  pin)
+{
+    nrf_gpio_cfg_default(pin);
 
- void CreateIODevice(IODevice* device,uint8_t numofbit,IOBaseAddress* port,PinAndPinset* pin,
+}
+
+// GPIOTE
+
+
+
+
+ void CreateIODevice(IODevice* device,InterruptController* intcomp,uint8_t numofbit,IOBaseAddress* port,PinAndPinset* pin,
                      DriveStrength* length,Pull_Push* type, PinMode* mode,
-                     PinMode* bufferconnected)
+                     PinMode* bufferconnected,enum_Sense_for_wakeup* sense)
     {
        uint8_t temp;
        for (temp=0;temp<numofbit;temp++)
        {
          _IO_Configure(*(port+temp),*(pin+temp),*(length+temp),*(type+temp),
-                       *(mode+temp),*(bufferconnected+temp));
+                       *(mode+temp),*(bufferconnected+temp),*(sense+temp));
        }
 
         device->IO_PinRead=_IO_PinRead;
         device->IO_PinWrite=_IO_PinWrite;
-
+        device->IO_Powerdown=_IO_powerdown;
         device->IO_Configure=_IO_Configure;
+        device->IO_IntConfigure=_IO_IntConfigure;
+        intcomp->Configure(GPIOTE_IRQn,true,0);
+
+         intcomp->IntHandler(GPIOTE_IRQn ,GPIOTE_Handler);
 
     }
 

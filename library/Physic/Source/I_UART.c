@@ -520,14 +520,14 @@ static bool _UART_Send(bool reset,UARTBaseAddress port , bool blocking ,uint8_t 
 
       {
        case 0:
-           SEGGER_RTT_printf(0,"uart %d\r\n",0);
+         //  SEGGER_RTT_printf(0,"uart %d\r\n",0);
              nrf_uart_txd_set((NRF_UART_Type*)port,*data);
            *getstepuart(port)=10;
            return(false);
        case 10:
 
 
-           SEGGER_RTT_printf(0,"uart %d\r\n",10);
+          // SEGGER_RTT_printf(0,"uart %d\r\n",10);
            if  (*getflaguart(port)==true)
            {
 

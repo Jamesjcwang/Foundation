@@ -19,10 +19,11 @@ static void _Exflash_Startup(ExternalFlashParameter* parameters)
 }
 
  void _Exflash_Routine(bool reset,uint32_t paraindex,
-                       uint32_t crcparaindex, uint32_t delayparaindex,
+                       uint32_t crcparaoutindex, uint32_t delayparaindex,
                        uint32_t modelinindex,uint32_t modeloutindex)
  {
-
+     uint8_t templength;
+     uint8_t tempresult[2];
      ExternalFlashParameter* parameters;
 
      parameters=(ExternalFlashParameter*)flash_listcomp->
@@ -79,9 +80,9 @@ SEGGER_RTT_printf(0,"Fla%d\r\n", 10);
         break;
 
     case 20:
-       if (flash_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
-                              &parameters->tempvalue,parameters->tempcount++,false)
-                              ==overflow_model)
+           flash_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
+                              &parameters->tempvalue,parameters->tempcount++,false);
+        if (parameters->tempcount==parameters->templength-3)
         {
 
 
@@ -143,7 +144,7 @@ SEGGER_RTT_printf(0,"Fla%d\r\n", 60);
         {
 
          SEGGER_RTT_printf(0,"Fla%d\r\n", 101);
-         parameters->step=200;
+         parameters->step=190;
 
         }
 
@@ -166,15 +167,29 @@ SEGGER_RTT_printf(0,"Fla%d\r\n",  parameters->tempvalue);
        {
 
 SEGGER_RTT_printf(0,"Fla%d\r\n", 111);
-           flash_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
-                              &parameters->tempvalue,1,true);
+
             parameters->step=1000;
 
         }
         break;
+
+    case 190:
+
+
+
+        flash_crccomp->crc(crcparaoutindex,3,parameters->receivedata,
+                           tempresult,&templength);
+
+        *(parameters->receivedata+3)=*tempresult;
+        *(parameters->receivedata+4)=*(tempresult+1);
+
+        parameters->step=200;
+         break;
+
     case 200:
-    if (flash_modelcomp->Set(modeloutindex,crcparaindex,parameters->tempcmd,
-                            parameters->receivedata,3,false)==successful_model)
+    if (flash_modelcomp->Set(modeloutindex,
+                             parameters->tempcmd,parameters->receivedata,
+                             5)==successful_model)
        {
 
 SEGGER_RTT_printf(0,"Fla%d\r\n", 200);
@@ -190,11 +205,19 @@ SEGGER_RTT_printf(0,"Fla%d\r\n", 200);
        break;
 
    case 1000:
+     parameters->receivedata[0]=0xff;
+     flash_crccomp->crc(crcparaoutindex,1,parameters->receivedata,
+                        tempresult,&templength);
+     *(parameters->receivedata+1)=*(tempresult);
+     *(parameters->receivedata+2)=*(tempresult+1);
 
-      parameters->receivedata[0]=0xff;
+   case 1100:
 
-        if (flash_modelcomp->Set(modeloutindex,crcparaindex,parameters->tempcmd,
-                               parameters->receivedata,1,false)==successful_model)
+
+
+        if (flash_modelcomp->Set(modeloutindex,
+                                 parameters->tempcmd,parameters->receivedata,
+                                 3)==successful_model)
      {
           flash_iocomponent->IO_PinWrite(parameters->ioport,parameters->sspin,
                                  parameters->sspin);

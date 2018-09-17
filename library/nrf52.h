@@ -1109,28 +1109,7 @@ typedef struct {                                    /*!< NFCT Structure         
   * @brief GPIO Tasks and Events (GPIOTE)
   */
 
-typedef struct {                                    /*!< GPIOTE Structure                                                      */
-  __O  uint32_t  TASKS_OUT[8];                      /*!< Description collection[0]: Task for writing to pin specified
-                                                         in CONFIG[0].PSEL. Action on pin is configured in CONFIG[0].POLARITY. */
-  __I  uint32_t  RESERVED0[4];
-  __O  uint32_t  TASKS_SET[8];                      /*!< Description collection[0]: Task for writing to pin specified
-                                                         in CONFIG[0].PSEL. Action on pin is to set it high.                   */
-  __I  uint32_t  RESERVED1[4];
-  __O  uint32_t  TASKS_CLR[8];                      /*!< Description collection[0]: Task for writing to pin specified
-                                                         in CONFIG[0].PSEL. Action on pin is to set it low.                    */
-  __I  uint32_t  RESERVED2[32];
-  __IO uint32_t  EVENTS_IN[8];                      /*!< Description collection[0]: Event generated from pin specified
-                                                         in CONFIG[0].PSEL                                                     */
-  __I  uint32_t  RESERVED3[23];
-  __IO uint32_t  EVENTS_PORT;                       /*!< Event generated from multiple input GPIO pins with SENSE mechanism
-                                                         enabled                                                               */
-  __I  uint32_t  RESERVED4[97];
-  __IO uint32_t  INTENSET;                          /*!< Enable interrupt                                                      */
-  __IO uint32_t  INTENCLR;                          /*!< Disable interrupt                                                     */
-  __I  uint32_t  RESERVED5[129];
-  __IO uint32_t  CONFIG[8];                         /*!< Description collection[0]: Configuration for OUT[n], SET[n]
-                                                         and CLR[n] tasks and IN[n] event                                      */
-} NRF_GPIOTE_Type;
+
 
 
 /* ================================================================================ */

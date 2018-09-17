@@ -27,13 +27,11 @@ typedef enum
 typedef enum
 {
   CmdUartTest=0x00,
-  CmdIOOn=0x01,
   CmdGetDeviceID=0x02,
   CmdI2Creset=0x03,
   CmdGetShaSN=0x04,
   CmdGetProtectionICcellvalue=0x05,
   CmdGetFlashID=0x06,
-  CmdIOOff=0x07,
   CmdInttest=0x08,
   CmdVBAT=0x09,
   Cmdsteerlock=0x0A,
@@ -43,6 +41,14 @@ typedef enum
   CmdSleep=0x0E,
   CmdMcuon=0x10,
   CmdPt=0x11,
+  Cmd09=0x12,
+  CmdVBAT2=0x13,
+  CmdDischarge=0x14,
+  CmdReset=0x15,
+  CmdInttest2=0x16,
+  CmdInttest3=0x17,
+  CmdVBAT3=0x18,
+  CmdSoftreset=0x19,
 
   Cmdtotal
 
@@ -82,8 +88,8 @@ typedef struct
                      uint8_t* length, uint8_t* value,uint8_t index,bool release );
   // crccheck is true for checking the crc bytes
   // crccheck is false for adding the crc bytes
-  resultofaccess (* Set)(uint32_t modelindex,uint32_t crcparaindex,enum_CmdID cmd,
-               uint32_t* dataptr,uint32_t length,bool crccheck);
+  resultofaccess (* Set)(uint32_t modelindex,enum_CmdID cmd,
+               uint32_t* dataptr,uint32_t length);
  // ComDataStru flashdata;
  // ComDataStru shadata;
 

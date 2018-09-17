@@ -110,10 +110,12 @@ void _protection_cleanbus(ProtectionICParameter* paramters)
   uint32_t i,j;
 //SEGGER_RTT_printf(0,"SHAreceive%d\r\n", 1000);
  pro_iocomponent->IO_Configure(GPIO_PORT0_BASE,GPIO_PIN_26,NRF_GPIO_PIN_S0D1,
-                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN);
+                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN,
+                       Sense_Disabled);
 
  pro_iocomponent->IO_Configure(GPIO_PORT0_BASE,GPIO_PIN_27,NRF_GPIO_PIN_S0D1,
-                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN);
+                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN,
+                       Sense_Disabled);
 
 
  pro_iocomponent->IO_PinWrite(GPIO_PORT0_BASE,GPIO_PIN_26,GPIO_PIN_26);
@@ -121,9 +123,11 @@ void _protection_cleanbus(ProtectionICParameter* paramters)
 
 
  pro_iocomponent->IO_Configure(GPIO_PORT0_BASE,GPIO_PIN_26,NRF_GPIO_PIN_S0D1,
-                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_OUT,GPIO_DIR_MODE_IN);
+                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_OUT,GPIO_DIR_MODE_IN,
+                       Sense_Disabled);
  pro_iocomponent->IO_Configure(GPIO_PORT0_BASE,GPIO_PIN_27,NRF_GPIO_PIN_S0D1,
-                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_OUT,GPIO_DIR_MODE_IN);
+                       NRF_GPIO_PIN_PULLUP,GPIO_DIR_MODE_OUT,GPIO_DIR_MODE_IN,
+                       Sense_Disabled);
 
 //SEGGER_RTT_printf(0,"SHAreceive%d\r\n", 900);
 
@@ -165,10 +169,12 @@ static void _ProtectionIC_Startup(ProtectionICParameter* paramters)
   //SEGGER_RTT_printf(0,"SHAreceive%d\r\n", 800);
     pro_iocomponent->IO_Configure(paramters->ioport,paramters->sdapin
                                             ,NRF_GPIO_PIN_S0D1,paramters->sdatype,
-                                            GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN);
+                                            GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN,
+                                            Sense_Disabled);
     pro_iocomponent->IO_Configure(paramters->ioport,paramters->sclpin,
                                             NRF_GPIO_PIN_S0D1,paramters->scltype,
-                                            GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN);
+                                            GPIO_DIR_MODE_IN,GPIO_DIR_MODE_IN,
+                                            Sense_Disabled);
 
     pro_i2component->I2C_Configure(paramters->i2cport,I2C_FREQUENCY_K100,
                                    GPIO_PIN_27,GPIO_PIN_26);
@@ -176,14 +182,40 @@ static void _ProtectionIC_Startup(ProtectionICParameter* paramters)
                                   EVENTS_RXDREADY|EVENTS_TXDSENT|EVENTS_STOPPED,true,0,true);
 
     pro_iocomponent->IO_PinWrite(paramters->ioport,paramters->enablepin,
-                                 paramters->enablepin);
+                                paramters->enablepin);
+      for(tempi=0;tempi<6000000;tempi++)
+      {
+
+      }
+      pro_iocomponent->IO_PinWrite(paramters->ioport,paramters->enablepin,
+                                0);
+}
+void dataswap(uint8_t* data,uint32_t length)
+{
+    uint8_t tempdata,tempi;
+    for (tempi=1;tempi<(length>>1);tempi++)
+     {
+        tempdata=*(data+tempi);
+        *(data+tempi)=*(data+tempi+1);
+        *(data+tempi+1)=tempdata;
+
+     }
+
 }
 
+
+
 static void _ProtectionIC_Routine(bool reset,uint32_t proparaindex,
-                         uint32_t crcparaindex, uint32_t delayparaindex,
-                         uint32_t modelinindex,uint32_t modeloutindex)
+                         uint32_t crcparainindex,uint32_t crcparaoutindex,
+                         uint32_t delayparaindex,uint32_t modelinindex,
+                         uint32_t modeloutindex)
  {
+    resultofaccess _tempmodelresult;
     enum_i2cresult tempresult;
+
+    uint8_t templength;
+    uint8_t tempresult1[2];
+    uint32_t temp;
     volatile uint32_t i;
 
     ProtectionICParameter* parameters;
@@ -211,6 +243,7 @@ static void _ProtectionIC_Routine(bool reset,uint32_t proparaindex,
 
       break;
 
+
     case 5:
 
             pro_delaycomponent->Delay_Routine(true,1,7,delayparaindex);
@@ -222,26 +255,37 @@ static void _ProtectionIC_Routine(bool reset,uint32_t proparaindex,
 
      if (pro_delaycomponent->Delay_Routine(false,1,7,delayparaindex)==true)
        {
-        SEGGER_RTT_printf(0,"Pro%d\r\n", 10);
+      //  SEGGER_RTT_printf(0,"Pro%d\r\n", 10);
 
         pro_i2component->I2C_Send(open,parameters->i2cport,(uint8_t)parameters->slaveaddress,
                                   &(parameters->tempvalue));
-        parameters->tempcount=0;
+        parameters->tempcountin=0;
         parameters->step=20;
        }
      break;
 
     case 20:
 
-     if (pro_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
-                              &parameters->tempvalue,parameters->tempcount++,false)
-                              ==overflow_model)
+     pro_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
+                              &parameters->tempvalue,parameters->tempcountin++,false);
+         parameters->tempcountout=parameters->tempvalue;
+
+
+          parameters->step=25;
+          break;
+
+
+    case 25 :
+        pro_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
+                              &parameters->tempvalue,parameters->tempcountin++,false);
+       if (parameters->tempcountin==parameters->templength-1)
        {
 
-         SEGGER_RTT_printf(0,"Pro%d\r\n", 21);
-         parameters->tempcount=4;
+        // SEGGER_RTT_printf(0,"Pro%d\r\n", 21);
+
          pro_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
                               &parameters->tempvalue,1,true);
+         parameters->templength=parameters->tempcountout;
 
          parameters->step=100;
 
@@ -249,7 +293,7 @@ static void _ProtectionIC_Routine(bool reset,uint32_t proparaindex,
      else
        {
 
-         SEGGER_RTT_printf(0,"Pro%d\r\n", 20);
+       //  SEGGER_RTT_printf(0,"Pro%d\r\n", 20);
          pro_delaycomponent->Delay_Routine(true,1,2,delayparaindex);
          parameters->step=30;
 
@@ -262,21 +306,21 @@ static void _ProtectionIC_Routine(bool reset,uint32_t proparaindex,
                             (uint8_t)parameters->slaveaddress,&(parameters->tempvalue));
       if(tempresult==i2c_success)
        {
-            SEGGER_RTT_printf(0,"se%d\r\n", parameters->tempvalue);
+        //    SEGGER_RTT_printf(0,"se%d\r\n", parameters->tempvalue);
 
-          parameters->step=20;
+          parameters->step=25;
 
        }
       else if(tempresult==i2c_fail)
         {
-SEGGER_RTT_printf(0,"Pro%d\r\n", 31);
+//SEGGER_RTT_printf(0,"Pro%d\r\n", 31);
         pro_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
                                &parameters->tempvalue,1,true);
         parameters->step=1000;
         }
        else if ( pro_delaycomponent->Delay_Routine(true,1,2,delayparaindex)==true)
         {
-SEGGER_RTT_printf(0,"Pro%d\r\n", 32);
+//SEGGER_RTT_printf(0,"Pro%d\r\n", 32);
 
         pro_modelcomp->Get(modelinindex,&parameters->tempcmd,&parameters->templength,
                                &parameters->tempvalue,1,true);
@@ -290,7 +334,7 @@ SEGGER_RTT_printf(0,"Pro%d\r\n", 32);
     case 100:
 
 
-          SEGGER_RTT_printf(0,"pro%d\r\n", 100);
+        //  SEGGER_RTT_printf(0,"pro%d\r\n", 100);
 
 
           pro_i2component->I2C_Receive(open,parameters->i2cport,
@@ -301,12 +345,17 @@ SEGGER_RTT_printf(0,"Pro%d\r\n", 32);
            break;
 
   case 120:
-             if (parameters->tempcount==1)
+            if (parameters->tempcountout==0)
+            {
+                parameters->step=160;
+            }
+
+            else if (parameters->tempcountout==1)
 
              {
-              SEGGER_RTT_printf(0,"SHA%d\r\n", 120);
+           //   SEGGER_RTT_printf(0,"SHA%d\r\n", 120);
 
-                  SEGGER_RTT_printf(0,"SHA%d\r\n", 121);
+            //      SEGGER_RTT_printf(0,"SHA%d\r\n", 121);
               pro_i2component->I2C_Receive(close,parameters->i2cport,parameters->slaveaddress,
                                          &(parameters->tempvalue));
                 parameters->step=160;
@@ -325,8 +374,8 @@ SEGGER_RTT_printf(0,"Pro%d\r\n", 32);
         if (pro_i2component->I2C_Receive(null,parameters->i2cport,parameters->slaveaddress,
                                          &(parameters->tempvalue))==i2c_success)
         {
-           SEGGER_RTT_printf(0,"re%d\r\n", parameters->tempvalue);
-          *(parameters->_receivedata+(4-parameters->tempcount--))
+        //   SEGGER_RTT_printf(0,"re%d\r\n", parameters->tempvalue);
+          *(parameters->_receivedata+(parameters->templength-parameters->tempcountout--))
                                                                 =parameters->tempvalue;
 
 
@@ -345,13 +394,17 @@ SEGGER_RTT_printf(0,"Pro%d\r\n", 32);
         if (pro_i2component->I2C_Receive(null,parameters->i2cport,parameters->slaveaddress,
                                          &(parameters->tempvalue))==i2c_success)
         {
-            SEGGER_RTT_printf(0,"re%d\r\n", parameters->tempvalue);
-          *(parameters->_receivedata+(4-parameters->tempcount--))
+         //   SEGGER_RTT_printf(0,"re%d\r\n", parameters->tempvalue);
+          *(parameters->_receivedata+(parameters->templength-parameters->tempcountout--))
                                                                  = parameters->tempvalue;
 
             pro_delaycomponent->Delay_Routine(true,1,2,delayparaindex);
 
-             parameters->step=200;
+            //dataswap(parameters->_receivedata,4);
+
+            parameters->step=200;
+
+
         }
         else if (pro_delaycomponent->Delay_Routine(false,1,2,delayparaindex)==true)
         {
@@ -361,14 +414,38 @@ SEGGER_RTT_printf(0,"Pro%d\r\n", 32);
         }
         break;
 
+
+
+
      case 200:
 
-     if (pro_modelcomp->Set(modeloutindex,crcparaindex,parameters->tempcmd,
-                            parameters->_receivedata,4,false)==successful_model)
-        {
-           parameters->step=220;
-        }
+        // dataswap(parameters->_receivedata,4);
 
+         pro_crccomp->crc(crcparaoutindex,parameters->templength,parameters->_receivedata,tempresult1,
+                      &templength);
+
+         *(parameters->_receivedata+parameters->templength)=*tempresult1;
+         *(parameters->_receivedata+parameters->templength+1)=*(tempresult1+1);
+         parameters->step=210;
+
+         break;
+     case 210:
+
+      _tempmodelresult=pro_modelcomp->Set(modeloutindex,parameters->tempcmd,
+                                           parameters->_receivedata,parameters->templength+2);
+     if (_tempmodelresult==successful_model)
+     {
+       //     SEGGER_RTT_printf(0,"pro%d\r\n", 210);
+
+           parameters->step=220;
+
+     }
+     else if (_tempmodelresult==failure_model)
+     {
+
+         parameters->step=1000;
+
+     }
         break;
 
 
@@ -378,7 +455,7 @@ SEGGER_RTT_printf(0,"Pro%d\r\n", 32);
         if (pro_i2component->I2C_Receive(null,parameters->i2cport,parameters->slaveaddress,
                                          &(parameters->tempvalue))==i2c_stop)
         {
-            SEGGER_RTT_printf(0,"SHA%d\r\n", 220);
+        //    SEGGER_RTT_printf(0,"SHA%d\r\n", 220);
 
             parameters->step=230;
 
@@ -405,16 +482,24 @@ SEGGER_RTT_printf(0,"Pro%d\r\n", 32);
 
         if (pro_delaycomponent->Delay_Routine(false,1,1,delayparaindex)==true)
         {
-            SEGGER_RTT_printf(0,"SHA%d\r\n", 250);
+        //    SEGGER_RTT_printf(0,"SHA%d\r\n", 250);
             parameters->step=0;
         }
          break;
     case 1000:
+      parameters->_receivedata[0]=0xff;
+      pro_crccomp->crc(crcparaoutindex,1,parameters->_receivedata,
+                        tempresult1,&templength);
+     *(parameters->_receivedata+1)=*(tempresult1);
+     *(parameters->_receivedata+2)=*(tempresult1+1);
+
+    case 1100:
 
        parameters->_receivedata[0]=0xff;
 
-        if (pro_modelcomp->Set(modeloutindex,crcparaindex,parameters->tempcmd,
-                               parameters->_receivedata,1,false)==successful_model)
+        if (pro_modelcomp->Set(modeloutindex,
+                               parameters->tempcmd,parameters->_receivedata,
+                               3)==successful_model)
         {
               parameters->step=0;
               SEGGER_RTT_printf(0,"SHA%d\r\n", 1100);

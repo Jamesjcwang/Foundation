@@ -1,7 +1,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "library\Physic\Header\I_Int.h"
-
+#include "library\nrf.h"
 #ifndef __I_Power_h__
 #define __I_Power_h__
 
@@ -62,20 +62,9 @@ typedef enum
 typedef struct {
 
  void (* Get_DeviceID)(uint32_t* lsbbits,uint32_t* msbbits);
-
- void (*Power_Sleep)(PowerBaseAddress port);
-
- void (*Power_IntConfigure)(PowerBaseAddress port, PowerMISenum interrupt,
-                           bool enable,uint32_t priority,bool controllerenable);
-
- void (*Power_IntClear)(PowerBaseAddress port, PowerMISenum interrupt);
-
- uint32_t (*Power_IntStatus)(PowerBaseAddress port,PowerMISenum interrupt);
-
-
- void(* Power_IntHandler )(PowerBaseAddress port, void(*Handler)(PowerMISenum eventkind) );
-
-
+void (*IntConfigure)(PowerBaseAddress port, PowerMISenum interrupt,
+                        bool enable,uint32_t priority,bool controllerenable);
+ bool (*Sleep)(bool reset,PowerBaseAddress port);
 
 } PowerDevice;
 

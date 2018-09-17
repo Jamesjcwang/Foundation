@@ -5,17 +5,32 @@ static uint8_t _stopped_adc,_started_adc,_done_adc,_end_adc;
 
 static uint8_t _adcvalue_ready[channel_ADC_total];
 static uint8_t _adcchannel_active[channel_ADC_total];
-static uint16_t _adcvalue[channel_ADC_total];
+static uint32_t _adcvalue[channel_ADC_total];
 
 
 static void _ADC_set_pin(ADCBaseAddress port,uint32_t channel,enum_ADC_AnalogIn pin_p,enum_ADC_AnalogIn pin_n)
   {
-     ((ADCStruct*)(port))->CH0_PSELP =(uint32_t)pin_p;
+     if (channel==channel_ADC_0)
+     {
+            ((ADCStruct*)(port))->CH0_PSELP =(uint32_t)pin_p;
 ((ADCStruct*)(port))->CH0_PSELN =(uint32_t)pin_n;
+     }
+     else if (channel==channel_ADC_5)
+     {
+ ((ADCStruct*)(port))->CH5_PSELP =(uint32_t)pin_p;
+((ADCStruct*)(port))->CH5_PSELN =(uint32_t)pin_n;
+     }
+       else if (channel==channel_ADC_7)
+     {
+ ((ADCStruct*)(port))->CH7_PSELP =(uint32_t)pin_p;
+((ADCStruct*)(port))->CH7_PSELN =(uint32_t)pin_n;
+     }
    // *((uint32_t*)((&(((ADCStruct*)(port))->CH0_PSELN))+((uint32_t)(16<<channel)))) =(uint32_t)pin_n;
   }
 static void _ADC_set_limit(ADCBaseAddress port,uint32_t channel,uint32_t limit)
   {
+
+
       ((ADCStruct*)(port))->CH0_LIMIT =limit;
 
   }
@@ -34,13 +49,36 @@ static void _ADC_set_config(ADCBaseAddress port,uint32_t channel,enum_ADC_Resp r
                       enum_ADC_Resp resistorofn,enum_ADC_GAIN gain,
                       enum_ADC_refsel refsel,enum_ADC_acquistion tacq,enum_ADC_Mode mode)
 {
-   ((ADCStruct*)(port))->CH0_CONFIG=
+    if (channel==channel_ADC_0)
+    {
+      ((ADCStruct*)(port))->CH0_CONFIG=
      ( ((uint32_t)resistorofp)|
       ((uint32_t)resistorofn)|
       ((uint32_t)gain)|
       ((uint32_t)refsel)|
       ((uint32_t)tacq)|
       ((uint32_t)mode));
+    }
+    else if (channel==channel_ADC_5)
+    {
+      ((ADCStruct*)(port))->CH5_CONFIG=
+     ( ((uint32_t)resistorofp)|
+      ((uint32_t)resistorofn)|
+      ((uint32_t)gain)|
+      ((uint32_t)refsel)|
+      ((uint32_t)tacq)|
+      ((uint32_t)mode));
+    }
+   else if (channel==channel_ADC_7)
+    {
+      ((ADCStruct*)(port))->CH7_CONFIG=
+     ( ((uint32_t)resistorofp)|
+      ((uint32_t)resistorofn)|
+      ((uint32_t)gain)|
+      ((uint32_t)refsel)|
+      ((uint32_t)tacq)|
+      ((uint32_t)mode));
+    }
 
   }
 
@@ -173,11 +211,11 @@ static void _ADC_Configure(ADCBaseAddress port ,enum_ADC_channel channel,
         {
            uint32_t _templimit;
 
-            _ADC_set_enable(port);
+
 
               _ADC_set_config(port,channel,resistorofp,resistorofn,gain,refsel,tacq,mode);
              _ADC_set_pin(port,channel,positivepin,negativepin);
-             _ADC_set_samplerate(port,samplekind);
+              _ADC_set_samplerate(port,samplekind);
              _ADC_set_resolution(port,resolution);
              _adcchannel_active[channel]=1;
 
@@ -196,6 +234,7 @@ static bool _ADC_Sample(bool reset,enum_ADC_channel channel,uint32_t* value,bool
 
          _done_adc=0;
         _step_adc[channel]=0;
+
          _ADC_clear_int_status(SAADC,ADC_Event_DONE);
          _ADC_clear_int_status(SAADC,ADC_Event_STOPPED);
          _ADC_clear_int_status(SAADC,ADC_Event_STARTED);
@@ -213,7 +252,7 @@ static bool _ADC_Sample(bool reset,enum_ADC_channel channel,uint32_t* value,bool
        case 0:
             if (_stopped_adc==1)
             {
-
+SEGGER_RTT_printf(0,"adc1 %d\r\n",0);
                 _stopped_adc=0;
                 _step_adc[channel]=10;
             }
@@ -227,7 +266,7 @@ static bool _ADC_Sample(bool reset,enum_ADC_channel channel,uint32_t* value,bool
        case 20:
             if (_started_adc==1)
             {
-
+SEGGER_RTT_printf(0,"adc1 %d\r\n",20);
               _started_adc=0;
 
               for (j=0;j<1000;j++)
@@ -244,19 +283,41 @@ static bool _ADC_Sample(bool reset,enum_ADC_channel channel,uint32_t* value,bool
 
            if (_done_adc==1)
            {
+   for (j=0;j<1000;j++)
+              {
+
+              }
+
              _done_adc=0;
              for(i=0;i<channel_ADC_total;i++)
              {
                if (_adcchannel_active[i]==1)
                {
+                  if (i==0)
+                  {
+                      _adcvalue[i]=*(ADC_bufferptr)&0xFFFF;
+                  }
+                  else if(i==1)
+                  {
+                      _adcvalue[i]=(*(ADC_bufferptr)>>16)&0XFFFF;
 
-                  _adcvalue[i]=*(ADC_bufferptr);
-
+                  }
+                  else if(i==2)
+                  {
+                       _adcvalue[i]=*(ADC_bufferptr+1)&0XFFFF;
+                  }
+                  else if(i==3)
+                  {
+                      _adcvalue[i]=(*(ADC_bufferptr+1)>>16)&0XFFFF;
+                  }
                   _adcvalue_ready[i]=1;
 
                }
 
 
+
+SEGGER_RTT_printf(0,"adc1 %d\r\n",*(ADC_bufferptr));
+SEGGER_RTT_printf(0,"adc1 %d\r\n",*(ADC_bufferptr+1));
              }
 
            _step_adc[channel]=100;
@@ -269,7 +330,7 @@ static bool _ADC_Sample(bool reset,enum_ADC_channel channel,uint32_t* value,bool
            *value=_adcvalue[channel];
 
            _step_adc[channel]=0;
-
+SEGGER_RTT_printf(0,"adc1 %d\r\n",100);
            return(true);
 
          }
@@ -354,8 +415,13 @@ void CreateADCDevice(ADCDevice* device, InterruptController* intcontroller,
 {
 
  if (ADC_bufferptr==0)
- {
-     ADC_bufferptr=(uint16_t*)malloc(buffersize*sizeof(uint16_t));
+ { SEGGER_RTT_printf(0,"adcstart %d\r\n",5);
+     ADC_bufferptr=(uint32_t*)malloc(buffersize*sizeof(uint32_t));
+     *(ADC_bufferptr)=0;
+      *(ADC_bufferptr+1)=0;
+
+    _ADC_set_enable(port);
+    _ADC_set_buffer(SAADC,ADC_bufferptr,10);
 
  }
   _ADC_Configure(port,channel,positivepin,negativepin,resistorofP,resistorofN,
@@ -367,13 +433,13 @@ void CreateADCDevice(ADCDevice* device, InterruptController* intcontroller,
  // device->ADC_IntStatus=_ADC_IntStatus;
  // device->ADC_Receive=_ADC_Receive;
 
-  _ADC_set_buffer(port,ADC_bufferptr,buffersize/2);
+
   _adcchannel_active[channel]=1;
   device->ADC_Sample=_ADC_Sample;
  // device->ADC_Start=_ADC_Start;
   ADC_intcontroller=intcontroller;
   ADC_intcontroller->IntHandler(SAADC_IRQn,ADChandler);
-  _ADC_IntConfigure(SAADC,ADC_Event_DONE|ADC_Event_END|ADC_Event_STARTED|ADC_Event_STOPPED,
+  _ADC_IntConfigure(SAADC,ADC_Event_RESULTDONE|ADC_Event_DONE|ADC_Event_END|ADC_Event_STARTED|ADC_Event_STOPPED,
                     true,0,true);
 
 }

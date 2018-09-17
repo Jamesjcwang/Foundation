@@ -21,6 +21,7 @@ typedef struct
     uint32_t tempindex;
     uint32_t lengthofdata;
     uint32_t flagreceived;
+    uint32_t refresh;
     uint8_t  receivedata[50];
 
 
@@ -40,7 +41,10 @@ typedef struct
     uint8_t startchar;
 
 
-    uint32_t crcparaindex;
+    uint32_t crcparainindex;
+    uint32_t crcparaoutindex;
+    uint32_t crcparaoutindex_transfer;
+    uint32_t crcparaoutindex_transfer2;
     uint32_t delayparaindex;
     uint32_t modelinindex;
     uint32_t modeloutindex;
@@ -57,8 +61,12 @@ typedef struct {
                               UARTBaseAddress uartport,IOBaseAddress ioport,
                               PinAndPinset txpin,PinAndPinset rxpin,
                               PinAndPinset cstpin,PinAndPinset rstpin,
-                              uint32_t crcparaindex,uint32_t delayparaindex,
-                              uint32_t modelinindex,uint32_t modeloutindex);
+                              uint32_t crcparainindex,uint32_t crcparaoutindex,
+                              uint32_t crcparaoutindex_transfer,
+                              uint32_t crcparaoutindex_transfer2,
+                              uint32_t delayparaindex,
+                              uint32_t modelinindex,
+                              uint32_t modeloutindex);
 
 
 } UARTTXRXDevice;

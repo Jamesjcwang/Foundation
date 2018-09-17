@@ -1,6 +1,9 @@
 #include "library\Component\Header\I_Model.h"
 
 
+
+
+
  static resultofaccess _Get(uint32_t modelindex,enum_CmdID* cmd,
                      uint8_t* length, uint8_t* value,uint8_t index,
                      bool release)
@@ -54,29 +57,14 @@
 
 
  }
- static resultofaccess _Set(uint32_t modelindex,uint32_t crcparaindex,enum_CmdID cmd,
-           uint8_t* dataptr,uint32_t length,bool crccheck)
+ static resultofaccess _Set(uint32_t modelindex,enum_CmdID cmd,
+                            uint8_t* dataptr,uint32_t length)
  {
+
    ComDataStru* data;
 
    data=(ComDataStru*)model_listcomp->
                            GetAt(&modellist,modelindex);
-
-//   if (crccheck==true)
-//   {
-//    if( model_crccomp->crc(crcparaindex,cmd,&length,dataptr)==false)
-//    {
-//        return (failure_model);
-//    }
-//
-//   }
-//   else
-//   {
-//     model_crccomp->crc(crcparaindex,cmd,&length,dataptr)  ;
-//
-//   }
-//
-
 
 
    if (data->validbit==false)
@@ -86,12 +74,12 @@
      for (data->i=0;data->i<length;data->i++)
      {
       *(data->rawdata+data->i)=*(dataptr+data->i);
-
-
-
-
+     SEGGER_RTT_printf(0,"model %d\r\n", *(data->rawdata+data->i));
      }
-     data->validbit=true;
+
+
+
+         data->validbit=true;
 
 
      return (successful_model);

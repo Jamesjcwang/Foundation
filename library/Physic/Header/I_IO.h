@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "I_Int.h"
+#include "I_IOTE.h"
 #include "library\nrf.h"
 #ifndef __I_IO_h__
 #define __I_IO_h__
@@ -10,7 +11,7 @@ typedef struct {                                    /*!< GPIO Structure         
   volatile uint32_t  OUT;                               /*!< Write GPIO port.                                                      */
  volatile uint32_t  OUTSET;                            /*!< Set individual bits in GPIO port.                                     */
  volatile uint32_t  OUTCLR;                            /*!< Clear individual bits in GPIO port.                                   */
-volatile const  uint32_t  IN;                                /*!< Read GPIO port.                                                       */
+volatile   uint32_t  IN;                                /*!< Read GPIO port.                                                       */
   volatile uint32_t  DIR;                               /*!< Direction of GPIO pins.                                               */
  volatile uint32_t  DIRSET;                            /*!< DIR set register.                                                     */
  volatile uint32_t  DIRCLR;                            /*!< DIR clear register.                                                   */
@@ -124,17 +125,28 @@ GPIO_DIR_MODE_HW     =   0x00000002UL
 
 } PinMode;
 
+typedef enum
+{
+  Sense_Disabled=0,
+  Sense_High=2,
+  Sense_Low=3
+
+} enum_Sense_for_wakeup;
 
 typedef struct {
 
   //InterruptController* intcontroller;
 void (*IO_Configure)(IOBaseAddress port ,PinAndPinset pin, DriveStrength length,Pull_Push type,
-                     PinMode mode,PinMode bufferconnected);
+                     PinMode mode,PinMode bufferconnected,enum_Sense_for_wakeup sense);
 
- void (*IO_PinWrite)(IOBaseAddress port , PinAndPinset  pin, PinAndPinset status);
+void (*IO_PinWrite)(IOBaseAddress port , PinAndPinset  pin, PinAndPinset status);
 
 uint32_t (*IO_PinRead)(IOBaseAddress port ,PinAndPinset pin);
 
+void (*IO_IntConfigure)(IOTEBaseAddress port, enum_pin_iote pin, enum_channel_iote channel
+                            ,enum_polarity_iote polarity,void (*handler)(void));
+
+void (*IO_Powerdown)(IOBaseAddress port , PinAndPinset  pin);
  //void (*IO_AlternateFunction) (IOBaseAddress Port,PinAndPinset Pin, uint32_t Enocding );
 
  //void (*IO_IntConfigure)(IOBaseAddress Port, PinAndPinset Pin,TriggerLogic LogicType);
@@ -146,9 +158,12 @@ uint32_t (*IO_PinRead)(IOBaseAddress port ,PinAndPinset pin);
 
 } IODevice;
 
-extern void CreateIODevice(IODevice* device,uint8_t numofbit,IOBaseAddress* port,
+InterruptController* IO_intcontroller;
+
+extern void CreateIODevice(IODevice* device,InterruptController* intcomp,
+                           uint8_t numofbit,IOBaseAddress* port,
                            PinAndPinset* pin,DriveStrength* length,Pull_Push* type,
-                           PinMode* mode,PinMode* bufferconnected);
+                           PinMode* mode,PinMode* bufferconnected,enum_Sense_for_wakeup* sense);
 
 
 //extern void IO_Configure(uint32_t Port ,PinAndPinset Pin, DriveStrength Length,Pull_Push Type,

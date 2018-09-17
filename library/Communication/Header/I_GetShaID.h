@@ -31,8 +31,9 @@ enum_CmdID cmdft;
 typedef struct {
 
  void(* Routine)(bool reset,uint32_t shaparaindex,
-                         uint32_t crcparaindex, uint32_t delayparaindex,
-                         uint32_t modelinindex,uint32_t modeloutindex);
+                         uint32_t crcparainindex,uint32_t crcparaoutindex,
+                         uint32_t delayparaindex,uint32_t modelinindex,
+                         uint32_t modeloutindex);
  uint32_t (*ParameterInitial)(enum_CmdID cmdft,
                               I2CBaseAddress i2cport,IOBaseAddress ioport,
                               uint32_t slaveaddress,PinAndPinset sclpin,

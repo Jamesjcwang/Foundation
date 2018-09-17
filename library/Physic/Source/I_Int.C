@@ -11,6 +11,7 @@ static void(*timer1_handler)(void);
 static void(*timer2_handler)(void);
 static void(*timer3_handler)(void);
 static void(*timer4_handler)(void);
+static void(*ioint_handler)(void);
 void Int_Configure(IntCollection interrupt , bool enable,  uint32_t priority)
 {
 
@@ -68,7 +69,7 @@ void Int_Configure(IntCollection interrupt , bool enable,  uint32_t priority)
           break;
 
      case SPIM1_SPIS1_TWIM1_TWIS1_SPI1_TWI1_IRQn:
-          SEGGER_RTT_printf(0,"Times %d\r\n",662);
+
           spi1_handler=handler;
           break;
 
@@ -100,10 +101,20 @@ void Int_Configure(IntCollection interrupt , bool enable,  uint32_t priority)
          timer4_handler=handler;
      break;
 
+     case GPIOTE_IRQn:
+         ioint_handler=handler;
+     break;
+
 
      }
 
  }
+
+void  GPIOTE_IRQHandler (void)
+{
+
+    ioint_handler();
+}
  void UARTE0_UART0_IRQHandler(void)
  {
 
@@ -112,26 +123,25 @@ void Int_Configure(IntCollection interrupt , bool enable,  uint32_t priority)
  }
 
  void SPIM0_SPIS0_TWIM0_TWIS0_SPI0_TWI0_IRQHandler(void)
-{ //SEGGER_RTT_printf(0,"Times %d\r\n",112);
+{
     spi0_handler();
 }
 
 void SPIM1_SPIS1_TWIM1_TWIS1_SPI1_TWI1_IRQHandler(void)
 {
-     SEGGER_RTT_printf(0,"receive %d\r\n",117);
-  //  SEGGER_RTT_printf(0,"Times %d\r\n",112);
+
     spi1_handler();
 }
 
 void SPIM2_SPIS2_SPI2_IRQHandler(void)
 {
-// SEGGER_RTT_printf(0,"Times %d\r\n",113);
+
     spi2_handler();
 
 }
 void POWER_CLOCK_IRQHandler(void)
 {
-   // SEGGER_RTT_printf(0,"Times %d\r\n",661);
+
     power_handler();
 
 }

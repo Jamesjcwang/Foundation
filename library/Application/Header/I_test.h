@@ -3,11 +3,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "library\Physic\Header\I_IO.h"
+
 #include "library\Component\Header\I_Model.h"
 #include "library\Component\Header\I_CRC.h"
 #include "library\Physic\Header\I_Power.h"
 #include "library\Physic\Header\I_ADC.h"
-#include "library\nrf_gpiote.h"
 #ifndef __I_test_h__
 #define __I_test_h__
 typedef struct
@@ -15,7 +15,7 @@ typedef struct
  uint32_t step;
 
  uint32_t modelinindex,modeloutindex;
- uint32_t crcparaindex;
+ uint32_t crcparainindex,crcparaoutindex;
  uint32_t tempvalue,tempcount,templength,tempcmd,tempindex;
  uint8_t  receivedata[50];
  uint8_t _i,_p;
